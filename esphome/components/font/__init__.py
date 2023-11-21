@@ -158,11 +158,11 @@ def get_font_path(value):
         )
         if temp_path is not None:
             helpers.delete_file(temp_path)
-        _LOGGER.warning("get font path file_name=%s", file_name)
+        _LOGGER.debug("get_font_path: file_name=%s", file_name)
         name = f"{file_name}@{value[CONF_WEIGHT]}@{value[CONF_ITALIC]}"
         file_path = Path(external_files.compute_local_file_dir(name, DOMAIN))
         output_file_name = f"{file_name}{file_extension}"
-        _LOGGER.warning("get font path file_path=%s", file_path / output_file_name)
+        _LOGGER.debug("get_font_path: file_path=%s", file_path / output_file_name)
         return file_path / output_file_name
     return None
 
