@@ -67,10 +67,13 @@ def compute_image_file_type(filepath) -> str:
         return filepath.suffix
     from PIL import Image
 
+    _LOGGER.debug("compute_local_file_type: file_path=%s ", filepath)
     img = Image.open(filepath)
     file_name = img.filename
     file_extension = img.format.lower()
-    _LOGGER.debug("compute_local_file_type: %s %s", file_name, file_extension)
+    _LOGGER.debug(
+        "compute_local_file_type: file_name=%s file_path=%s", file_name, file_extension
+    )
     return "." + file_extension
 
 
@@ -87,35 +90,14 @@ def _compute_local_image_path(config) -> (Path, str):
     return base_dir / f"{file_name}{file_type}", file_name
 
 
-def download_mdi(value):
-    mdi_id = value[CONF_ICON]
-    path = _compute_local_icon_path(value)
-    if path.is_file():
-        return value
-    url = f"https://raw.githubusercontent.com/Templarian/MaterialDesign/master/svg/{mdi_id}.svg"
-    _LOGGER.debug("Downloading %s MDI image from %s", mdi_id, url)
-    try:
-        req = requests.get(url, timeout=IMAGE_DOWNLOAD_TIMEOUT)
-        req.raise_for_status()
-    except requests.exceptions.RequestException as e:
-        raise cv.Invalid(f"Could not download MDI image {mdi_id} from {url}: {e}")
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(req.content)
-    return value
-
-
-def download_image(value):
-    url = value[CONF_URL]
-    path, image_id = _compute_local_image_path(value)
-
+def download_content(url, path, content_id):
     if not external_files.has_remote_file_changed(url, path):
         _LOGGER.debug("Remote file has not changed %s", url)
-        return value
+        return
 
-    _LOGGER.info(
-        "Remote file has changed, downloading %s image from %s to %s",
-        image_id,
+    _LOGGER.debug(
+        "Remote file has changed, downloading %s from %s to %s",
+        content_id,
         url,
         path,
     )
@@ -124,10 +106,31 @@ def download_image(value):
         req = requests.get(url, timeout=IMAGE_DOWNLOAD_TIMEOUT)
         req.raise_for_status()
     except requests.exceptions.RequestException as e:
-        raise cv.Invalid(f"Could not download image {image_id} from {url}: {e}")
+        raise cv.Invalid(f"Could not download {content_id} from {url}: {e}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(req.content)
+
+
+def download_mdi(value):
+    validate_cairosvg_installed(value)
+
+    mdi_id = value[CONF_ICON]
+    path = _compute_local_icon_path(value)
+
+    url = f"https://raw.githubusercontent.com/Templarian/MaterialDesign/master/svg/{mdi_id}.svg"
+
+    download_content(url, path, mdi_id)
+
+    return value
+
+
+def download_image(value):
+    url = value[CONF_URL]
+    path, image_id = _compute_local_image_path(value)
+
+    download_content(url, path, image_id)
+
     return value
 
 
@@ -197,8 +200,6 @@ def validate_file_shorthand(value):
             }
         )
     if value.startswith("http://") or value.startswith("https://"):
-        validate_cairosvg_installed(value)
-
         return FILE_SCHEMA(
             {
                 CONF_SOURCE: SOURCE_WEB,
